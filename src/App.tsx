@@ -17,7 +17,7 @@ import {
 } from '@likho-ai/web-sdk';
 import { ChevronLeft, Download, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { LayerToggle, Lines } from './components/Lines';
 import { LiveBanner } from './components/LiveBanner';
 import { Player, type PlayerHandle } from './components/Player';
@@ -37,6 +37,9 @@ function readLayer(): Layer {
 
 export default function App() {
   const { id } = useParams<{ id: string }>();
+  const [params] = useSearchParams();
+  // ?t=<seconds>: a line opened from a search; the player stands there and the line is marked.
+  const startAt = Math.max(0, Number(params.get('t')) || 0);
   const navigate = useNavigate();
   const recording = useRecording(id);
   const [version, setVersion] = useState<string | null>(null);
@@ -48,7 +51,7 @@ export default function App() {
   const remove = useDeleteRecording();
   const [layer, setLayerState] = useState<Layer>(readLayer);
   const [find, setFind] = useState('');
-  const [time, setTime] = useState(0);
+  const [time, setTime] = useState(startAt);
   const player = useRef<PlayerHandle>(null);
   const onTime = useCallback((seconds: number) => setTime(seconds), []);
 
@@ -179,6 +182,7 @@ export default function App() {
           peaksUrl={rec.peaksUrl ?? null}
           durationSeconds={rec.durationSeconds}
           onTime={onTime}
+          startAt={startAt}
         />
       )}
 

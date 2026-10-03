@@ -28,8 +28,10 @@ export const Player = forwardRef<
     peaksUrl: string | null;
     durationSeconds: number;
     onTime: (seconds: number) => void;
+    /** Where to stand when the audio is ready (a line opened from a search), without playing. */
+    startAt?: number;
   }
->(function Player({ audioUrl, peaksUrl, durationSeconds, onTime }, ref) {
+>(function Player({ audioUrl, peaksUrl, durationSeconds, onTime, startAt = 0 }, ref) {
   const container = useRef<HTMLDivElement>(null);
   const surfer = useRef<WaveSurfer | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -64,7 +66,10 @@ export const Player = forwardRef<
     wave.on('play', () => setPlaying(true));
     wave.on('pause', () => setPlaying(false));
     wave.on('finish', () => setPlaying(false));
-    wave.on('ready', (d) => setDuration(d));
+    wave.on('ready', (d) => {
+      setDuration(d);
+      if (startAt > 0 && startAt < d) wave.setTime(startAt);
+    });
     wave.on('timeupdate', (t) => {
       setTime(t);
       onTime(t);
@@ -94,7 +99,7 @@ export const Player = forwardRef<
       wave.destroy();
       surfer.current = null;
     };
-  }, [audioUrl, peaksUrl, durationSeconds, onTime]);
+  }, [audioUrl, peaksUrl, durationSeconds, onTime, startAt]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

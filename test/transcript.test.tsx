@@ -7,6 +7,11 @@ import { fakeApi, renderAt } from './helpers';
 const { surfer } = vi.hoisted(() => ({
   surfer: {
     on: vi.fn(),
+    /** Fires a wavesurfer event the way the real player would. */
+    fire(name: string, ...args: unknown[]) {
+      for (const call of (this.on as { mock: { calls: [string, (...a: unknown[]) => void][] } }).mock.calls)
+        if (call[0] === name) call[1](...args);
+    },
     load: vi.fn(async () => {}),
     destroy: vi.fn(),
     setTime: vi.fn(),
@@ -80,7 +85,7 @@ const recording = (status: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-function page(client: ReturnType<typeof fakeApi>['client']) {
+function page(client: ReturnType<typeof fakeApi>['client'], path = '/recordings/rec_1') {
   vi.stubGlobal(
     'EventSource',
     class {
@@ -93,7 +98,7 @@ function page(client: ReturnType<typeof fakeApi>['client']) {
     async () => new Response(JSON.stringify({ peaks: [1, 2], max: 100, duration_seconds: 61.5 })),
   );
   return renderAt(
-    '/recordings/rec_1',
+    path,
     <Routes>
       <Route path="/recordings/:id" element={<App />} />
     </Routes>,
@@ -141,6 +146,23 @@ describe('the transcript page', () => {
     });
     await user.click(screen.getByRole('button', { name: '.txt' }));
     expect(saved).toEqual([{ name: 'call.hinglish.txt', content: 'clicked' }]);
+  });
+
+  it('opens at the moment a search pointed to: the line is marked and the player stands there', async () => {
+    const { client } = fakeApi({
+      Recording: () => ({ recording: recording('done') }),
+      Transcript: () => ({ transcript: transcript('trn_1', 1) }),
+      TranscriptVersions: () => ({ transcriptVersions: [transcript('trn_1', 1)] }),
+    });
+    Element.prototype.scrollIntoView = vi.fn(); // jsdom has no layout; the active line scrolls into view
+    page(client, '/recordings/rec_1?t=4');
+    const lines = within(await screen.findByLabelText('Transcript lines')).getAllByRole('listitem');
+    await waitFor(() => expect(lines[1]).toHaveAttribute('aria-current', 'true'));
+    expect(lines[0]).not.toHaveAttribute('aria-current', 'true');
+    surfer.setTime.mockClear();
+    surfer.fire('ready', 61.5);
+    expect(surfer.setTime).toHaveBeenCalledWith(4);
+    expect(surfer.play).not.toHaveBeenCalled();
   });
 
   it('shows the live banner while a job runs, and the way to start one when none has', async () => {
