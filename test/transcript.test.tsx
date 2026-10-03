@@ -9,7 +9,8 @@ const { surfer } = vi.hoisted(() => ({
     on: vi.fn(),
     /** Fires a wavesurfer event the way the real player would. */
     fire(name: string, ...args: unknown[]) {
-      for (const call of (this.on as { mock: { calls: [string, (...a: unknown[]) => void][] } }).mock.calls)
+      for (const call of (this.on as unknown as { mock: { calls: [string, (...a: unknown[]) => void][] } })
+        .mock.calls)
         if (call[0] === name) call[1](...args);
     },
     load: vi.fn(async () => {}),
