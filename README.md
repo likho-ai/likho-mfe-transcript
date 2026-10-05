@@ -1,5 +1,9 @@
 # likho-mfe-transcript
 
+Also exposed: `./TranscriptPanel` (`{ recordingId | externalId, startAt }`): the player and the
+lines, read-only, without navigation, for the page another system embeds beside a call
+(the shell's `/embed/recordings/:ref#token=…`) or for a React host with the Likho provider.
+
 The transcript screen of the Likho web app: the player with the waveform, every line in both
 layers (as spoken, and Hinglish), the lines arriving live while a job runs, the language and
 details, versions, re-applied spellings, and downloads. Loaded by
