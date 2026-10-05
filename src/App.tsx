@@ -12,6 +12,7 @@ import {
   useRecording,
   useCorrectSegment,
   useCorrections,
+  useMe,
   useRetransliterate,
   useTranscript,
   useTranscriptVersions,
@@ -53,6 +54,7 @@ export default function App() {
   const correct = useCorrectSegment();
   const corrections = useCorrections(recording.data?.status === 'done' ? id : undefined);
   const remove = useDeleteRecording();
+  const me = useMe();
   const [layer, setLayerState] = useState<Layer>(readLayer);
   const [find, setFind] = useState('');
   const [time, setTime] = useState(startAt);
@@ -104,7 +106,9 @@ export default function App() {
   );
   const correctedVersions = new Map((corrections.data ?? []).map((c) => [c.correctedTranscriptId, c]));
   const isLatest = transcriptId === rec.latestTranscriptId;
-  const canTranscribe = ['ready', 'done'].includes(rec.status) && !activeJob;
+  // A viewer reads, plays and downloads; nothing that changes the recording is shown to them.
+  const canChange = me.data?.role !== 'viewer';
+  const canTranscribe = canChange && ['ready', 'done'].includes(rec.status) && !activeJob;
   const download = (kind: 'txt' | 'srt') => {
     const base = rec.originalName.replace(/\.[^.]+$/, '');
     if (kind === 'txt')
@@ -155,12 +159,14 @@ export default function App() {
           )}
           {transcript.data && (
             <>
-              <Button
-                onClick={() => retransliterate.mutate({ transcriptId: transcript.data!.id })}
-                disabled={retransliterate.isPending}
-              >
-                Re-apply spellings
-              </Button>
+              {canChange && (
+                <Button
+                  onClick={() => retransliterate.mutate({ transcriptId: transcript.data!.id })}
+                  disabled={retransliterate.isPending}
+                >
+                  Re-apply spellings
+                </Button>
+              )}
               <Button onClick={() => download('txt')}>
                 <Download aria-hidden="true" />
                 .txt
@@ -171,17 +177,19 @@ export default function App() {
               </Button>
             </>
           )}
-          <Button
-            variant="ghost"
-            aria-label="Delete this recording"
-            onClick={() => {
-              if (confirm(`Delete ${rec.originalName} and its transcript?`)) {
-                remove.mutate({ id: rec.id }, { onSuccess: () => navigate('/recordings') });
-              }
-            }}
-          >
-            <Trash2 aria-hidden="true" />
-          </Button>
+          {canChange && (
+            <Button
+              variant="ghost"
+              aria-label="Delete this recording"
+              onClick={() => {
+                if (confirm(`Delete ${rec.originalName} and its transcript?`)) {
+                  remove.mutate({ id: rec.id }, { onSuccess: () => navigate('/recordings') });
+                }
+              }}
+            >
+              <Trash2 aria-hidden="true" />
+            </Button>
+          )}
         </div>
       </header>
 
@@ -249,7 +257,7 @@ export default function App() {
                   corrected={correctedLines}
                   saving={correct.isPending}
                   onCorrect={
-                    isLatest && !activeJob
+                    canChange && isLatest && !activeJob
                       ? (index, which, text) =>
                           correct
                             .mutateAsync({

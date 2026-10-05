@@ -248,6 +248,25 @@ describe('the transcript page', () => {
     expect(screen.queryByRole('button', { name: 'Transcribe' })).not.toBeInTheDocument();
   });
 
+  it('shows a viewer the transcript without the ways to change it', async () => {
+    const { client } = fakeApi({
+      Me: () => ({
+        me: {
+          id: 'usr_2',
+          email: 'v@example.test',
+          name: 'Vee',
+          role: 'viewer',
+          workspace: { id: 'wsp_1', name: 'W' },
+        },
+      }),
+      Recording: () => ({ recording: recording('ready') }),
+    });
+    page(client);
+    expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Transcribe' })).not.toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Delete this recording' })).not.toBeInTheDocument();
+  });
+
   it('offers Transcribe for a recording that is ready', async () => {
     const started: string[] = [];
     const { client } = fakeApi({
