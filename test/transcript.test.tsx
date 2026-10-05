@@ -298,4 +298,73 @@ describe('the transcript page', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Transcribe' }));
     await waitFor(() => expect(started).toEqual(['rec_1']));
   });
+
+  it('shows what the model said about the call, and asks again on request', async () => {
+    const made = {
+      id: 'ins_1',
+      transcriptId: 'trn_1',
+      recordingId: 'rec_1',
+      transcriptVersion: 1,
+      summary: 'The customer ordered Ashwagandha; delivery in two days.',
+      intent: 'order',
+      products: ['Ashwagandha'],
+      sentiment: 'positive',
+      checks: [
+        { key: 'greeting', label: 'Greeted the customer', answer: 'yes', evidence: 'namaste' },
+        { key: 'closing', label: 'Closed the call properly', answer: 'no', evidence: '' },
+        { key: 'objection', label: 'Answered an objection', answer: 'na', evidence: '' },
+      ],
+      scores: [{ key: 'resolution', label: 'The need was handled', score: 9, max: 10, reason: 'Ordered.' }],
+      scoreTotal: 9,
+      scoreMax: 10,
+      model: 'anthropic/claude-sonnet-5-5',
+      inputTokens: 1,
+      outputTokens: 1,
+      formVersion: 'example-1',
+      createdAt: new Date().toISOString(),
+    };
+    const { client, calls } = fakeApi({
+      Recording: () => ({ recording: recording('done') }),
+      Transcript: () => ({ transcript: transcript('trn_1', 1) }),
+      TranscriptVersions: () => ({ transcriptVersions: [transcript('trn_1', 1)] }),
+      InsightsStatus: () => ({
+        insightsStatus: { enabled: true, model: 'anthropic/claude-sonnet-5-5', formVersion: 'example-1' },
+      }),
+      Insights: () => ({ insights: made }),
+      AnalyseRecording: () => ({ analyseRecording: { ...made, sentiment: 'mixed' } }),
+    });
+    page(client);
+    const panel = (await screen.findByRole('heading', { name: 'Insights' })).closest('section')!;
+    expect(
+      await within(panel).findByText('The customer ordered Ashwagandha; delivery in two days.'),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText('Positive')).toBeInTheDocument();
+    expect(within(panel).getByText('Ashwagandha')).toBeInTheDocument();
+    expect(within(panel).getByText(/Score 9 \/ 10/)).toBeInTheDocument();
+    const checks = within(within(panel).getByRole('list', { name: 'Checks' })).getAllByRole('listitem');
+    expect(checks).toHaveLength(3);
+    expect(checks[0]).toHaveTextContent('Yes');
+    expect(checks[0]).toHaveTextContent('Greeted the customer');
+    expect(checks[0]).toHaveTextContent('namaste');
+    expect(checks[1]).toHaveTextContent('No');
+    expect(within(panel).getByText('The need was handled')).toBeInTheDocument();
+
+    await userEvent.setup().click(within(panel).getByRole('button', { name: 'Analyse again' }));
+    expect(await within(panel).findByText('Mixed')).toBeInTheDocument();
+    expect(calls.find((c) => c.name === 'AnalyseRecording')?.variables).toEqual({ id: 'rec_1', force: true });
+  });
+
+  it('says when insights are off, and offers nothing to ask', async () => {
+    const { client } = fakeApi({
+      Recording: () => ({ recording: recording('done') }),
+      Transcript: () => ({ transcript: transcript('trn_1', 1) }),
+      TranscriptVersions: () => ({ transcriptVersions: [transcript('trn_1', 1)] }),
+      InsightsStatus: () => ({ insightsStatus: { enabled: false, model: '', formVersion: 'example-1' } }),
+      Insights: () => ({ insights: null }),
+    });
+    page(client);
+    const panel = (await screen.findByRole('heading', { name: 'Insights' })).closest('section')!;
+    expect(await within(panel).findByText(/no model is configured/)).toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'Analyse' })).not.toBeInTheDocument();
+  });
 });

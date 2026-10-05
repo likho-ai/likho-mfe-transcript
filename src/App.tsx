@@ -1,6 +1,7 @@
 /**
  * One recording: its transcript with both layers, the player, live lines while a job runs,
- * language and details, versions. Exposed to the shell as ./App; mounted at /recordings/:id.
+ * what the model says about the call, language and details, versions. Exposed to the shell as
+ * ./App; mounted at /recordings/:id.
  */
 import { Button, Meter, StatusChip, Tag } from '@likho-ai/ui';
 import {
@@ -13,6 +14,7 @@ import {
   useCorrectSegment,
   useCorrections,
   useMe,
+  useRecordingLive,
   useRetransliterate,
   useTranscript,
   useTranscriptVersions,
@@ -21,6 +23,7 @@ import {
 import { ChevronLeft, Download, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { InsightsPanel } from './components/Insights';
 import { LayerToggle, Lines } from './components/Lines';
 import { LiveBanner } from './components/LiveBanner';
 import { Player, type PlayerHandle } from './components/Player';
@@ -55,6 +58,8 @@ export default function App() {
   const corrections = useCorrections(recording.data?.status === 'done' ? id : undefined);
   const remove = useDeleteRecording();
   const me = useMe();
+  // The recording's own stream: its jobs, its status, and the model's answer when it is in.
+  const live = useRecordingLive(id);
   const [layer, setLayerState] = useState<Layer>(readLayer);
   const [find, setFind] = useState('');
   const [time, setTime] = useState(startAt);
@@ -281,6 +286,14 @@ export default function App() {
         </section>
 
         <aside className="space-y-6">
+          {rec.latestTranscriptId && (
+            <InsightsPanel
+              recordingId={rec.id}
+              latestTranscriptId={rec.latestTranscriptId}
+              live={live}
+              canChange={canChange}
+            />
+          )}
           {transcript.data && (
             <section
               aria-labelledby="language-title"
