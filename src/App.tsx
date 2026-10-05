@@ -10,6 +10,8 @@ import {
   useCreateJob,
   useDeleteRecording,
   useRecording,
+  useCorrectSegment,
+  useCorrections,
   useRetransliterate,
   useTranscript,
   useTranscriptVersions,
@@ -48,6 +50,8 @@ export default function App() {
   const versions = useTranscriptVersions(recording.data?.status === 'done' ? id : undefined);
   const createJob = useCreateJob();
   const retransliterate = useRetransliterate();
+  const correct = useCorrectSegment();
+  const corrections = useCorrections(recording.data?.status === 'done' ? id : undefined);
   const remove = useDeleteRecording();
   const [layer, setLayerState] = useState<Layer>(readLayer);
   const [find, setFind] = useState('');
@@ -92,6 +96,14 @@ export default function App() {
   const chip = CHIP[rec.status];
   const english = transcript.data?.language.decodedAs === 'en';
   const lines = transcript.data?.segments ?? [];
+  // The lines a person corrected to make the version being read.
+  const correctedLines = new Set(
+    (corrections.data ?? [])
+      .filter((c) => c.correctedTranscriptId === transcriptId)
+      .map((c) => c.segmentIndex),
+  );
+  const correctedVersions = new Map((corrections.data ?? []).map((c) => [c.correctedTranscriptId, c]));
+  const isLatest = transcriptId === rec.latestTranscriptId;
   const canTranscribe = ['ready', 'done'].includes(rec.status) && !activeJob;
   const download = (kind: 'txt' | 'srt') => {
     const base = rec.originalName.replace(/\.[^.]+$/, '');
@@ -227,13 +239,35 @@ export default function App() {
               </p>
             )}
             {lines.length > 0 && (
-              <Lines
-                lines={lines}
-                layer={english ? 'roman' : layer}
-                currentTime={time}
-                onSeek={(s) => player.current?.seek(s)}
-                highlight={find}
-              />
+              <>
+                <Lines
+                  lines={lines}
+                  layer={english ? 'roman' : layer}
+                  currentTime={time}
+                  onSeek={(s) => player.current?.seek(s)}
+                  highlight={find}
+                  corrected={correctedLines}
+                  saving={correct.isPending}
+                  onCorrect={
+                    isLatest && !activeJob
+                      ? (index, which, text) =>
+                          correct
+                            .mutateAsync({
+                              transcriptId: transcriptId!,
+                              segmentIndex: index,
+                              layer: which,
+                              text,
+                            })
+                            .then((data) => setVersion(data.correctSegment.id))
+                      : undefined
+                  }
+                />
+                {correct.error && (
+                  <p role="alert" className="mt-2 text-sm text-[var(--likho-status-failed-ink)]">
+                    {correct.error.message}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </section>
@@ -306,7 +340,11 @@ export default function App() {
                     >
                       Version {v.version}
                       <span className="ml-2 text-ink-3">
-                        {v.jobId ? 'transcribed' : 're-applied spellings'}
+                        {v.jobId
+                          ? 'transcribed'
+                          : correctedVersions.has(v.id)
+                            ? `line ${correctedVersions.get(v.id)!.segmentIndex + 1} corrected`
+                            : 're-applied spellings'}
                       </span>
                       {v.createdAt && (
                         <span className="block text-xs text-ink-3">

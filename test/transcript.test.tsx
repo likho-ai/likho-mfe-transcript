@@ -166,6 +166,55 @@ describe('the transcript page', () => {
     expect(surfer.play).not.toHaveBeenCalled();
   });
 
+  it('corrects a line in place and marks what was corrected', async () => {
+    const asked: Record<string, unknown>[] = [];
+    const { client } = fakeApi({
+      Recording: () => ({ recording: recording('done') }),
+      Transcript: (v) => ({ transcript: transcript(v.id as string, v.id === 'trn_2' ? 2 : 1) }),
+      TranscriptVersions: () => ({ transcriptVersions: [transcript('trn_1', 1)] }),
+      Corrections: () => ({
+        corrections: asked.length
+          ? [
+              {
+                id: 'cor_1',
+                recordingId: 'rec_1',
+                transcriptId: 'trn_1',
+                correctedTranscriptId: 'trn_2',
+                segmentIndex: 1,
+                layer: 'roman',
+                before: 'dhanyavaad',
+                after: 'shukriya',
+                userId: 'usr_1',
+                createdAt: new Date().toISOString(),
+              },
+            ]
+          : [],
+      }),
+      CorrectSegment: (v) => {
+        asked.push(v.input as Record<string, unknown>);
+        const next = transcript('trn_2', 2);
+        next.segments = next.segments.map((s) => (s.index === 1 ? { ...s, textRoman: 'shukriya' } : s));
+        return { correctSegment: next };
+      },
+    });
+    page(client);
+    const lines = within(await screen.findByLabelText('Transcript lines')).getAllByRole('listitem');
+    const user = userEvent.setup();
+    await user.click(within(lines[1]!).getByRole('button', { name: 'Correct the Hinglish of line 2' }));
+    const box = screen.getByRole('textbox', { name: 'Correct the Hinglish of line 2' });
+    expect(box).toHaveValue('dhanyavaad');
+    await user.clear(box);
+    await user.type(box, 'shukriya{Enter}');
+    await waitFor(() =>
+      expect(asked).toEqual([{ transcriptId: 'trn_1', segmentIndex: 1, layer: 'roman', text: 'shukriya' }]),
+    );
+    // The new version is shown, with the line marked as corrected.
+    const after = within(await screen.findByLabelText('Transcript lines')).getAllByRole('listitem');
+    await waitFor(() => expect(within(after[1]!).getByText('shukriya')).toBeInTheDocument());
+    await waitFor(() => expect(within(after[1]!).getByText('corrected')).toBeInTheDocument());
+    expect(screen.queryByRole('textbox', { name: /Correct the/ })).not.toBeInTheDocument();
+  });
+
   it('shows the live banner while a job runs, and the way to start one when none has', async () => {
     const { client } = fakeApi({
       Recording: () => ({
