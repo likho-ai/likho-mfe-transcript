@@ -108,6 +108,9 @@ function page(client: ReturnType<typeof fakeApi>['client'], path = '/recordings/
 }
 
 describe('the transcript page', () => {
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn(); // jsdom has no layout; the active line scrolls into view
+  });
   afterEach(() => vi.unstubAllGlobals());
 
   it('shows both layers of every line, the language and the details', async () => {
@@ -155,7 +158,6 @@ describe('the transcript page', () => {
       Transcript: () => ({ transcript: transcript('trn_1', 1) }),
       TranscriptVersions: () => ({ transcriptVersions: [transcript('trn_1', 1)] }),
     });
-    Element.prototype.scrollIntoView = vi.fn(); // jsdom has no layout; the active line scrolls into view
     page(client, '/recordings/rec_1?t=4');
     const lines = within(await screen.findByLabelText('Transcript lines')).getAllByRole('listitem');
     await waitFor(() => expect(lines[1]).toHaveAttribute('aria-current', 'true'));

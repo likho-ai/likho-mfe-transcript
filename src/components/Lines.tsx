@@ -115,9 +115,15 @@ export function Lines({
   saving?: boolean;
 }) {
   const [editing, setEditing] = useState<{ index: number; layer: CorrectionLayer } | null>(null);
-  const activeIndex = lines.findIndex(
+  // The line being played; between lines (a pause, or a moment opened from a search just before
+  // a line), the one about to start.
+  let activeIndex = lines.findIndex(
     (line) => currentTime >= line.startSeconds && currentTime < line.endSeconds,
   );
+  if (activeIndex < 0)
+    activeIndex = lines.findIndex(
+      (line) => line.startSeconds >= currentTime && line.startSeconds - currentTime <= 1,
+    );
   const activeRef = useRef<HTMLLIElement>(null);
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
