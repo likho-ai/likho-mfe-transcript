@@ -27,7 +27,7 @@ React 19, Vite 8, Tailwind CSS v4 with the likho-ui tokens, likho-web-sdk, waves
 
 ```bash
 pnpm install
-pnpm dev            # http://localhost:5175/mfe/transcript/ on its own, against the gateway's API
+pnpm dev            # http://localhost:5275/mfe/transcript/ on its own, against the gateway's API
 ```
 
 ## Develop
