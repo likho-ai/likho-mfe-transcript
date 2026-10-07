@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "20fd4bccd7b6ca0ddfb50fec25503ff9c6386dc1",
+  "include-component-in-tag": false,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "likho-mfe-transcript",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}
